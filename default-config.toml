@@ -1,0 +1,37 @@
+# 配置文件结构版本，由程序维护，请勿手动修改。
+version = 2
+
+# Telegram Bot Token（从 @BotFather 获取）。留空时适配器不会启动。
+bot_token = ""
+
+# 长轮询的超时时间（秒），Telegram 允许 1-100。
+poll_timeout_secs = 30
+
+# 两次长轮询之间的空闲间隔（秒）。0 表示无间隔立即重试。
+poll_idle_secs = 1
+
+# 允许的更新类型，空数组 = 全部。
+allowed_updates = ["message", "edited_message", "callback_query"]
+
+# HTTP API 请求超时（秒）
+request_timeout_secs = 30
+
+# 媒体上传超时（秒）
+upload_timeout_secs = 120
+
+# 最大重试次数（含首次）
+max_request_attempts = 3
+
+# 重试基础退避（毫秒）
+retry_base_delay_millis = 250
+
+# 连续轮询失败次数上限，0=无限
+max_poll_failures = 100
+
+[acl.group]
+mode = "disabled"
+list = []
+
+[acl.user]
+mode = "disabled"
+list = []

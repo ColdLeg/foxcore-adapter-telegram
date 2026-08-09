@@ -1,0 +1,246 @@
+# 矩阵编译各平台二进制，最后合成一个多入口 .foxplugin。
+# 依赖公开 foxcore-plugin-sdk；打包使用 KitsuneFlora/foxplugin Action。
+name: pack-foxplugin
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_VERSION: "1.92.0"
+  PLUGIN_ID: foxcore-adapter-telegram
+
+jobs:
+  build:
+    name: build-${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
+    env:
+      CARGO_TARGET_DIR: ${{ github.workspace }}/target
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-x86_64
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+            lib_name: foxcore_adapter_telegram.dll
+            artifact_name: plugin.dll
+            cross: none
+          - platform: linux-x86_64
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            lib_name: libfoxcore_adapter_telegram.so
+            artifact_name: plugin.so
+            cross: none
+          - platform: linux-aarch64
+            os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            lib_name: libfoxcore_adapter_telegram.so
+            artifact_name: plugin.so
+            cross: gnu-aarch64
+          - platform: android-aarch64
+            os: ubuntu-latest
+            target: aarch64-linux-android
+            lib_name: libfoxcore_adapter_telegram.so
+            artifact_name: plugin.so
+            cross: android
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust ${{ env.RUST_VERSION }}
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          targets: ${{ matrix.target }}
+
+      - name: Install linux aarch64 linker
+        if: matrix.cross == 'gnu-aarch64'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+
+      - name: Setup Android NDK
+        if: matrix.cross == 'android'
+        uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: r26b
+          link-local-llvm: false
+
+      - name: Configure Android linker
+        if: matrix.cross == 'android'
+        shell: bash
+        run: |
+          NDK="${{ steps.setup-ndk.outputs.ndk-path }}"
+          PREBUILT="${NDK}/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=${PREBUILT}/aarch64-linux-android29-clang" >> "$GITHUB_ENV"
+          echo "CC_aarch64_linux_android=${PREBUILT}/aarch64-linux-android29-clang" >> "$GITHUB_ENV"
+          echo "CXX_aarch64_linux_android=${PREBUILT}/aarch64-linux-android29-clang++" >> "$GITHUB_ENV"
+          echo "AR_aarch64_linux_android=${PREBUILT}/llvm-ar" >> "$GITHUB_ENV"
+          echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS=-C link-arg=-Wl,-z,max-page-size=16384" >> "$GITHUB_ENV"
+
+      - name: Configure linux aarch64 linker
+        if: matrix.cross == 'gnu-aarch64'
+        shell: bash
+        run: |
+          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> "$GITHUB_ENV"
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      - name: Update public SDK to latest
+        shell: bash
+        run: cargo update -p foxcore-plugin-sdk
+
+      - name: Build plugin
+        shell: bash
+        run: cargo build --release --target "${{ matrix.target }}" -j "$(nproc 2>/dev/null || echo 4)"
+
+      - name: Stage platform binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          PLATFORM="${{ matrix.platform }}"
+          ARTIFACT="${{ matrix.artifact_name }}"
+          SRC="${CARGO_TARGET_DIR}/${{ matrix.target }}/release/${{ matrix.lib_name }}"
+          mkdir -p "bin/${PLATFORM}"
+          cp "$SRC" "bin/${PLATFORM}/${ARTIFACT}"
+
+      - name: Upload platform binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: plugin-bin-${{ matrix.platform }}
+          path: bin/${{ matrix.platform }}
+          if-no-files-found: error
+
+  pack:
+    name: pack-all-platforms
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.stage.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download platform binaries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: plugin-bin-*
+          path: bins
+          merge-multiple: false
+
+      - name: Assemble multi-platform package
+        id: stage
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(sed -n 's/^version = \"\(.*\)\"/\1/p' Cargo.toml | head -n1)"
+          STAGING="staging/${PLUGIN_ID}"
+          OUT="dist/${PLUGIN_ID}-${VERSION}.foxplugin"
+
+          rm -rf staging dist
+          mkdir -p "${STAGING}/bin" dist
+
+          for dir in bins/plugin-bin-*; do
+            [[ -d "$dir" ]] || continue
+            plat="${dir##*/plugin-bin-}"
+            mkdir -p "${STAGING}/bin/${plat}"
+            cp -a "${dir}/." "${STAGING}/bin/${plat}/"
+          done
+
+          cp manifest.json "${STAGING}/manifest.json"
+          python3 - "${STAGING}" "${VERSION}" <<'PY'
+          import json, sys
+          from pathlib import Path
+
+          staging = Path(sys.argv[1])
+          version = sys.argv[2]
+          manifest_path = staging / "manifest.json"
+          manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+          manifest["version"] = version
+
+          entrypoints = {}
+          for platform_dir in sorted((staging / "bin").iterdir()):
+              if not platform_dir.is_dir():
+                  continue
+              dll = platform_dir / "plugin.dll"
+              so = platform_dir / "plugin.so"
+              if dll.is_file():
+                  entrypoints[platform_dir.name] = f"bin/{platform_dir.name}/plugin.dll"
+              elif so.is_file():
+                  entrypoints[platform_dir.name] = f"bin/{platform_dir.name}/plugin.so"
+              else:
+                  raise SystemExit(f"missing plugin binary in {platform_dir}")
+
+          expected = {
+              "windows-x86_64",
+              "linux-x86_64",
+              "linux-aarch64",
+              "android-aarch64",
+          }
+          missing = sorted(expected - set(entrypoints))
+          if missing:
+              raise SystemExit(f"missing platforms: {', '.join(missing)}")
+
+          manifest["entrypoints"] = entrypoints
+          manifest_path.write_text(
+              json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          print(json.dumps(entrypoints, ensure_ascii=False, indent=2))
+          PY
+
+          echo "staging=${STAGING}" >> "$GITHUB_ENV"
+          echo "PACKAGE_PATH=${OUT}" >> "$GITHUB_ENV"
+          echo "PLUGIN_VERSION=${VERSION}" >> "$GITHUB_ENV"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Pack with foxplugin Action
+        id: pack
+        uses: KitsuneFlora/foxplugin/actions/pack@main
+        with:
+          path: ${{ env.staging }}
+          output: ${{ env.PACKAGE_PATH }}
+
+      - name: Upload foxplugin artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PLUGIN_ID }}-${{ env.PLUGIN_VERSION }}.foxplugin
+          path: ${{ env.PACKAGE_PATH }}
+          if-no-files-found: error
+
+  release:
+    name: publish-release
+    needs: pack
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download combined package
+        uses: actions/download-artifact@v4
+        with:
+          pattern: ${{ env.PLUGIN_ID }}-*.foxplugin
+          path: dist
+          merge-multiple: true
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.pack.outputs.version }}
+          name: ${{ env.PLUGIN_ID }} ${{ needs.pack.outputs.version }}
+          files: dist/*.foxplugin
+          fail_on_unmatched_files: true
+          generate_release_notes: true
+          make_latest: true

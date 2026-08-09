@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "foxcore-adapter-telegram",
+  "displayName": "Telegram Adapter",
+  "version": "0.1.0",
+  "description": "Telegram Bot API 适配器",
+  "abiVersion": "1.4",
+  "entrypoints": {
+    "windows-x86_64": "bin/windows-x86_64/plugin.dll",
+    "linux-x86_64": "bin/linux-x86_64/plugin.so",
+    "linux-aarch64": "bin/linux-aarch64/plugin.so",
+    "android-aarch64": "bin/android-aarch64/plugin.so",
+    "android-x86_64": "bin/android-x86_64/plugin.so",
+    "macos-aarch64": "bin/macos-aarch64/plugin.dylib",
+    "macos-x86_64": "bin/macos-x86_64/plugin.dylib"
+  },
+  "locales": [],
+  "registrations": { "promptOverrides": [], "skillOverrides": [] }
+}

@@ -63,7 +63,7 @@ pub async fn download_file(
 
     let response = do_http(http, &get_file_req).await?;
     let parsed: TelegramResponse =
-        serde_json::from_slice(response.body.as_slice()).map_err(TelegramError::json)?;
+        serde_json::from_slice(response.body.as_slice()).map_err(|e| TelegramError::json(e.to_string()))?;
 
     if !parsed.ok {
         return Err(TelegramError::api(
@@ -78,7 +78,7 @@ pub async fn download_file(
             .result
             .ok_or_else(|| TelegramError::api(response.status, None, "missing result"))?,
     )
-    .map_err(TelegramError::json)?;
+    .map_err(|e| TelegramError::json(e.to_string()))?;
 
     let Some(file_path) = result.file_path.filter(|p| !p.is_empty()) else {
         return Err(TelegramError::not_found(format!(

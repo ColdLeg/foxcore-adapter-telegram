@@ -72,10 +72,8 @@ impl TelegramError {
 
     /// JSON 解析失败。
     #[must_use]
-    pub fn json(message: impl std::fmt::Display) -> Self {
-        Self::Json {
-            message: message.into(),
-        }
+    pub fn json(message: String) -> Self {
+        Self::Json { message }
     }
 
     /// 消息格式无效。

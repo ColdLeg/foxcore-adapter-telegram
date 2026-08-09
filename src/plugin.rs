@@ -8,15 +8,14 @@ use foxcore_plugin_sdk::abi_stable::std_types::{ROption, RResult, RString, RVec}
 use foxcore_plugin_sdk::async_ffi::FfiFuture;
 use foxcore_plugin_sdk::{
     AbiConversationYield, AbiError, AbiErrorCode, AbiLogEvent, AbiLogLevel, AbiPlugin,
-    AbiVersion, AdapterCallbackBox, AdapterDescriptor, ConversationContextBox,
-    ConversationDescriptor, HostApi, PluginCapabilities, PluginDescriptor, PluginInitInfo,
+    AdapterCallbackBox, AdapterDescriptor, ConversationContextBox,
+    HostApi, PluginCapabilities,
     catch_panic, guarded_async, guarded_fire_and_forget,
 };
 use foxcore_plugin_sdk::protocol::{AdapterEvent, OutgoingMessage};
 
 use crate::config::{CONFIG_VERSION, TelegramConfig};
 use crate::convert;
-use crate::error::TelegramError;
 use crate::poll;
 
 const ADAPTER_NAME: &str = "telegram";
@@ -186,7 +185,8 @@ impl AbiPlugin for TelegramPlugin {
             let task_id = host.task.spawn(
                 RString::from("telegram-poll"),
                 poll_future,
-            )?;
+            )
+            .into_result()?;
 
             *runtime.task_id.lock().unwrap() = Some(task_id);
 
@@ -205,7 +205,7 @@ impl AbiPlugin for TelegramPlugin {
 
     fn adapter_send_message(
         &self,
-        adapter: RString,
+        _adapter: RString,
         outgoing_json: RString,
     ) -> FfiFuture<RResult<RString, AbiError>> {
         let host = Arc::clone(&self.host);
@@ -281,7 +281,7 @@ impl AbiPlugin for TelegramPlugin {
 
     fn adapter_call_api(
         &self,
-        adapter: RString,
+        _adapter: RString,
         action: RString,
         params_json: RString,
     ) -> FfiFuture<RResult<RString, AbiError>> {

@@ -1,6 +1,5 @@
 //! Telegram Update <-> FoxCore AdapterEvent/IncomingMessage/OutgoingMessage 互转。
 
-use foxcore_plugin_sdk::abi_stable::std_types::{ROption, RString};
 use foxcore_plugin_sdk::protocol::{
     AdapterEvent, ImageMeta, IncomingMessage, MessageAddressing, MessageSegment, MessageStream,
     OutgoingMessage, ResourceKind, Sender,

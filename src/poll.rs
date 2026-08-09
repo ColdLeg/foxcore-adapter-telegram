@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use foxcore_plugin_sdk::abi_stable::std_types::{ROption, RString, RVec};
 use foxcore_plugin_sdk::protocol::AdapterEvent;
 use foxcore_plugin_sdk::{
-    AbiError, AbiErrorCode, AbiLogEvent, AbiLogLevel, AdapterCallbackBox, HostApi, HostHttpRef,
+    AbiLogEvent, AbiLogLevel, AdapterCallbackBox, HostApi, HostHttpRef,
     HostLogRef, HostTimeRef, HttpRequest, encode_json,
 };
 use serde::Deserialize;

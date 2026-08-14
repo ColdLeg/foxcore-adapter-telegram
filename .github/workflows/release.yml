@@ -1,5 +1,5 @@
 # 矩阵编译各平台二进制，最后合成一个多入口 .foxplugin。
-# 依赖公开 foxcore-plugin-sdk；打包使用 KitsuneFlora/foxplugin Action。
+# 依赖公开 foxcore-plugin-sdk；打包使用其内置 pack Action。
 name: pack-foxplugin
 
 on:
@@ -208,7 +208,7 @@ jobs:
 
       - name: Pack with foxplugin Action
         id: pack
-        uses: KitsuneFlora/foxplugin/actions/pack@main
+        uses: KitsuneFlora/foxcore-plugin-sdk/actions/pack@master
         with:
           path: ${{ env.staging }}
           output: ${{ env.PACKAGE_PATH }}

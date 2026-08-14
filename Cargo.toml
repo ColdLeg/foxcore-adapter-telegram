@@ -13,7 +13,8 @@ publish = false
 crate-type = ["cdylib"]
 
 [dependencies]
-foxcore-plugin-sdk = { git = "https://github.com/KitsuneFlora/foxcore-plugin-sdk", rev = "1f6b08a201a5e548fc8539ab7fe306a2d3d31e9d" }
+# ABI 1.7 = FoxNature 最新主程序匹配版本（SDK 0.3.0）
+foxcore-plugin-sdk = { git = "https://github.com/KitsuneFlora/foxcore-plugin-sdk", rev = "e26be665b00df5d2fb1e62c1b3ce5a0c33ba578c" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 toml = "0.8"

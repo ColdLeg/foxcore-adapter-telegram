@@ -58,7 +58,6 @@ impl AbiPlugin for TelegramPlugin {
         catch_panic(|| {
             Ok(PluginCapabilities {
                 tools: RVec::new(),
-                db_schema: ROption::RNone,
                 adapters: RVec::from(vec![AdapterDescriptor {
                     name: RString::from(ADAPTER_NAME),
                     description: RString::from("Telegram Bot API 适配器（HTTP 长轮询）"),
@@ -84,7 +83,6 @@ impl AbiPlugin for TelegramPlugin {
                 }]),
                 conversations: RVec::new(),
                 control: false,
-                default_config_toml: ROption::RSome(RString::from(DEFAULT_CONFIG_TOML)),
             })
         })
         .into()

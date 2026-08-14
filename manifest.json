@@ -4,7 +4,7 @@
   "displayName": "Telegram Adapter",
   "version": "0.1.0",
   "description": "Telegram Bot API 适配器",
-  "abiVersion": "1.4",
+  "abiVersion": "1.7",
   "entrypoints": {
     "windows-x86_64": "bin/windows-x86_64/plugin.dll",
     "linux-x86_64": "bin/linux-x86_64/plugin.so",
